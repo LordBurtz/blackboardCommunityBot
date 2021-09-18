@@ -7,13 +7,15 @@ from dotenv import load_dotenv
 from api import DSBApi
 
 load_dotenv()
-TOKEN = os.getenv("DISCORD_TOKEN")
-GUILD = os.getenv("DISCORD_GUILD")
+TOKEN = os.getenv("TOKEN")
+GUILD = os.getenv("GUILD")
 IDENT = os.getenv("IDENTIFIER")
+LOGIN=os.getenv("lgin")
+PASSWORD=os.getenv("pwds")
 
-ident = re.compile(IDENT)
+ident = re.compile(str(IDENT))
 
-dsbclient = DSBApi("290142", "GyDo2021")
+dsbclient = DSBApi(LOGIN, PASSWORD)
 
 class bbcClient(discord.Client):
     async def on_ready(self):
@@ -26,10 +28,29 @@ class bbcClient(discord.Client):
             if re.compile("entries").search(message.content):
                 entries = dsbclient.fetch_entries()
                 for entry in entries:
-                    print(entries)
+                    if len(entry) > 999:
+                        strs = splitstrings(entry)
+                        for s in strs:
+                            print(s)
+                            print(len(s))
+                            await  message.channel.send(s)
+                    else:
+                        print(entry)
+                        await message.channel.send(entry)
 
             else:
                 await message.channel.send('me')
+    
+    def splitstrings(string):
+        res = []
+        while len(string) > 999:
+            res.append(string[:999])
+            string = string[999:]
+
+        return res
 
 client = bbcClient()
 client.run(TOKEN)
+
+
+
