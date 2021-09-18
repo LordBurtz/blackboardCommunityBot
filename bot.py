@@ -2,8 +2,9 @@
 
 #bot.py
 
-import os, discord, re, dsbapi
+import os, discord, re
 from dotenv import load_dotenv
+from api import DSBApi
 
 load_dotenv()
 TOKEN = os.getenv("DISCORD_TOKEN")
@@ -12,7 +13,7 @@ IDENT = os.getenv("IDENTIFIER")
 
 ident = re.compile(IDENT)
 
-dsbclient = dsbapi.DSBApi("290142", "GyDo2021")
+dsbclient = DSBApi("290142", "GyDo2021")
 
 class bbcClient(discord.Client):
     async def on_ready(self):
