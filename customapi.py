@@ -6,6 +6,7 @@ An API for the DSBMobile substitution plan solution, which many schools use.
 __version_info__ = ('0', '0', '14')
 __version__ = '.'.join(__version_info__)
 
+import re
 import bs4
 import json
 import requests
@@ -37,7 +38,7 @@ class DSBApi:
         if not isinstance(tablemapper, list):
             raise TypeError('Attribute tablemapper is not of type list!')
         self.tablemapper = tablemapper
-        
+
         # loop over tablemapper array and identify the keyword "class". The "class" will have a special operation in split up the datasets
         self.class_index = None
         i = 0
@@ -46,7 +47,7 @@ class DSBApi:
                 self.class_index = i
                 break
             i += 1
-       
+
 
     def fetch_entries(self, images=True):
         """
@@ -87,19 +88,20 @@ class DSBApi:
         # validate response before proceed
         if data['Resultcode'] != 0:
             raise Exception(data['ResultStatusInfo'])
-        
+
         # Find the timetable page, and extract the timetable URL from it
         final = []
         for page in data["ResultMenuItems"][0]["Childs"]:
-                for child in page["Root"]["Childs"]:
-                        if isinstance(child["Childs"], list):
-                            for sub_child in child["Childs"]:
-                                final.append(sub_child["Detail"])
-                        else:
-                            final.append(child["Childs"]["Detail"])
+            for child in page["Root"]["Childs"]:
+                if isinstance(child["Childs"], list):
+                    for sub_child in child["Childs"]:
+                        final.append(sub_child["Detail"])
+                else:
+                    final.append(child["Childs"]["Detail"])
         if not final:
             raise Exception("Timetable data could not be found")
         output = []
+
         for entry in final:
             if entry.endswith(".htm") and not entry.endswith(".html") and not entry.endswith("news.htm"):
                 output.append(self.fetch_timetable(entry))
@@ -151,40 +153,54 @@ class DSBApi:
         sauce = requests.get(timetableurl).text
         soupi = bs4.BeautifulSoup(sauce, "html.parser")
         ind = -1
+
+        text = soupi.get_text()
+        cln_txt = text.replace(u'\xa0', ' ').replace('\n', '')
+        stri = re.sub('Untis 2022 GYMNASIUM DORFEN   D-84405, J\.-M.-BAUER-STR\. 18(.*?)StundeVertrFachRaumArtText', "", cln_txt)
+        temp = ""
+        for s in stri:
+            temp += s
+
+        stri= temp
+
+        return re.sub(" Untis Stundenplan Software", "", stri)
+        
         for soup in soupi.find_all('table', {'class': 'mon_list'}):
             ind += 1
+            return soup
             updates = [o.p.findAll('span')[-1].next_sibling.split("Stand: ")[1] for o in soupi.findAll('table', {'class': 'mon_head'})][ind]
             titles = [o.text for o in soupi.findAll('div', {'class': 'mon_title'})][ind]
             date = titles.split(" ")[0]
             day = titles.split(" ")[1].split(", ")[0].replace(",", "")
             entries = soup.find_all("tr")
             entries.pop(0)
+            return soup
             for entry in entries:
                 infos = entry.find_all("td")
                 if len(infos) < 2:
                     continue
-                
-                # check if a "class" attribute is there, if yes, split the "class" value by "," to spread out the data rows for each school class
-                if self.class_index != None:
-                    class_array = infos[self.class_index].text.split(", ")
-                else:
-                    # define a dummy value if we don't have a class column (with keyword "class")
-                    class_array = [ '---' ]
-                for class_ in class_array:
-                    new_entry = dict()
-                    new_entry["date"] = date
-                    new_entry["day"]  = day
-                    new_entry["updated"] = updates
-                    i = 0
-                    while i < len(infos):
-                        if i < len(self.tablemapper):
-                            attribute = self.tablemapper[i]
-                        else:
-                            attribute = 'col' + str(i)
-                        if attribute == 'class':
-                            new_entry[attribute] = class_ if infos[i].text != "\xa0" else "---"
-                        else:
-                            new_entry[attribute] = infos[i].text if infos[i].text != "\xa0" else "---"
-                        i += 1
-                    results.append(new_entry)
-        return results
+    
+                    # check if a "class" attribute is there, if yes, split the "class" value by "," to spread out the data rows for each school class
+                    if self.class_index != None:
+                        class_array = infos[self.class_index].text.split(", ")
+                    else:
+                        # define a dummy value if we don't have a class column (with keyword "class")
+                        class_array = [ '---' ]
+                    for class_ in class_array:
+                        new_entry = dict()
+                        new_entry["date"] = date
+                        new_entry["day"]  = day
+                        new_entry["updated"] = updates
+                        i = 0
+                        while i < len(infos):
+                            if i < len(self.tablemapper):
+                                attribute = self.tablemapper[i]
+                            else:
+                                  attribute = 'col' + str(i)
+                            if attribute == 'class':
+                                new_entry[attribute] = class_ if infos[i].text != "\xa0" else "---"
+                            else:
+                                new_entry[attribute] = infos[i].text if infos[i].text != "\xa0" else "---"
+                            i += 1
+                        results.append(new_entry)
+            return results
