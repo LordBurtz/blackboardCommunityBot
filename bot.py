@@ -28,12 +28,11 @@ class bbcClient(discord.Client):
             if re.compile("entries").search(message.content):
                 entries = dsbclient.fetch_entries()
                 for entry in entries:
-                    if len(entry) > 999:
-                        strs = splitstrings(entry)
-                        for s in strs:
-                            print(s)
-                            print(len(s))
-                            await  message.channel.send(s)
+                    for item in entry:
+                        if item["class"] == "---":
+                            pass
+                        else:
+                            await  message.channel.send(item)
                     else:
                         print(entry)
                         await message.channel.send(entry)
